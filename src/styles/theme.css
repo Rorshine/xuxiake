@@ -1,0 +1,83 @@
+/* 平面水墨风全局主题（无圆角/无阴影） */
+
+:root{
+  --paper-0: #f6f1e2;
+  --paper-1: #efe6cf;
+  --paper-2: #e4dbc1;
+  --ink-0: #1f2424;
+  --ink-1: rgba(31, 36, 36, 0.78);
+  --ink-2: rgba(31, 36, 36, 0.58);
+  --seal: #b33a2b;
+  --jade: #597b7a;
+  --gold: #b7923a;
+  --border: rgba(31, 36, 36, 0.14);
+  --hairline: rgba(31, 36, 36, 0.10);
+  --font-serif: "Source Han Serif SC","Noto Serif CJK SC","Songti SC","STSong","SimSun",serif;
+  --font-kaiti: "KaiTi","Kaiti SC","STKaiti","DFKai-SB","Source Han Serif SC",serif;
+}
+
+html, body{
+  height: 100%;
+  background: var(--paper-1);
+}
+
+body{
+  color: var(--ink-0);
+  font-family: var(--font-serif);
+}
+
+.x-theme{
+  color: var(--ink-0);
+  font-family: var(--font-serif);
+  background:
+    radial-gradient(1100px 700px at 18% 15%, rgba(0, 0, 0, 0.06), transparent 60%),
+    radial-gradient(1000px 650px at 86% 28%, rgba(0, 0, 0, 0.05), transparent 62%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(31, 36, 36, 0.025) 0px,
+      rgba(31, 36, 36, 0.025) 1px,
+      transparent 1px,
+      transparent 7px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(31, 36, 36, 0.018) 0px,
+      rgba(31, 36, 36, 0.018) 1px,
+      transparent 1px,
+      transparent 9px
+    ),
+    linear-gradient(180deg, var(--paper-0), var(--paper-1));
+}
+
+.x-title{
+  font-family: var(--font-kaiti);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.x-subtitle{
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.x-btn{
+  appearance: none;
+  border: 1px solid rgba(31, 36, 36, 0.18);
+  background: rgba(255, 255, 255, 0.20);
+  color: var(--ink-0);
+  border-radius: 0px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  font-family: var(--font-kaiti);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.x-btn:hover{
+  border-color: rgba(179, 58, 43, 0.28);
+  background: rgba(179, 58, 43, 0.06);
+}
+
