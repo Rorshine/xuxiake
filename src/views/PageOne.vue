@@ -1,4 +1,5 @@
 <template>
+
   <div class="page-container">
     <!-- 左侧章节容器 -->
     <div class="chapter-list" ref="chapterList">

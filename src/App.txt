@@ -30,12 +30,12 @@
 <script>
 import fullpage from 'fullpage.js';
 import 'fullpage.js/dist/fullpage.css';
-import PageHome from './views/PageHome.vue';
-import PageOne from './views/PageOne.vue';
-import PageTwo from './views/PageTwo.vue';
-import PageThree from './views/PageThree.vue';
-import PageFour from './views/PageFour.vue';
-import PageFive from './views/PageFive.vue';
+import PageHome from './components/PageHome.vue';
+import PageOne from './components/PageOne.vue';
+import PageTwo from './components/PageTwo.vue';
+import PageThree from './components/PageThree.vue';
+import PageFour from './components/PageFour.vue';
+import PageFive from './components/PageFive.vue';
 
 export default {
   name: 'App',
