@@ -51,16 +51,22 @@ export default {
 <style scoped>
 .home {
   width: 100%;
-  height: 100%;
-  position: relative;
+  height: 100vh;           /* 占满父容器 */
+  display: flex;          /* 启用 flex 列布局 */
+  flex-direction: column;
+  justify-content: space-between; /* 两端对齐：上部分和下部分 */
   padding: 70px 24px 18px;
-  overflow: hidden;
+  overflow: hidden;       /* 整体不产生滚动条（滚动由内部区域负责） */
+  box-sizing: border-box;
 }
 
-.home-center{
-  height: calc(100% - 92px);
+/* 上部分：可滚动区域（当内容过多时） */
+.home-center {
+  flex: 1;                /* 占据剩余空间 */
+  overflow-y: auto;       /* 内容过多时内部滚动 */
+  min-height: 0;          /* 允许 flex 子项收缩 */
   display: flex;
-  align-items: center;
+  align-items: center;    /* 垂直居中（原来效果） */
   justify-content: flex-start;
 }
 .title-block{
@@ -92,16 +98,21 @@ export default {
   color: rgba(31,36,36,0.86);
 }
 
-.home-bottom{
-  height: 92px;
-  display: flex;
-  align-items: flex-end;
+/* 下部分：固定高度（或由内容撑开） */
+.home-bottom {
+  flex-shrink: 0;         /* 不缩小 */
+  height: auto;           /* 自适应高度，不再固定 92px */
+  min-height: 92px;
+  padding-top: 10px;
+  overflow-x: hidden;
 }
-.nav-row{
+/* 导航按钮行 */
+.nav-row {
   width: 100%;
   display: flex;
   gap: 10px;
-  align-items: stretch;
+  flex-wrap: wrap;
+  overflow-x: hidden;
 }
 .nav-item{
   flex: 1;

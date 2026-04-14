@@ -1,12 +1,12 @@
 <template>
-    <div class="page-content" style="display: flex; justify-content: flex-start; align-items: center;">
+    <div class="page-content">
         <!-- Image on the Left -->
-        <div style="position: absolute; left: 50px; top: 50%; transform: translateY(-50%); z-index: 10;">
+        <div class="page-four-side-image">
             <img src="../assets/img/Page4content.png" alt="Image" style="max-width: 300px; height: auto;">
         </div>
 
         <!-- Tea Plant Component -->
-        <div>
+        <div class="page-four-main">
             
             <div class="tea-info-container" v-if="visible">
                 <!-- 图片部分 -->
@@ -1966,7 +1966,32 @@ export default defineComponent({
   
   <style scoped>
 .page-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     text-align: center;
+    box-sizing: border-box;
+}
+.page-four-side-image {
+    position: absolute;
+    left: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+}
+.page-four-main {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
 }
 .tea-info-container {
     position: absolute;  /* 绝对定位，使其相对于页面定位 */
