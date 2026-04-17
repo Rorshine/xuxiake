@@ -10,7 +10,7 @@
         v-for="(chapter, index) in chapters"
         :key="index"
         class="chapter-item"
-        :class="{ active: activeChapter === index }"
+        :class="{ active: selectedChapters.includes(index) }"
         :data-index="index"
         @click="selectChapter(index)"
       >
@@ -23,7 +23,8 @@
       <div class="map-wrapper" :class="{ 'detail-active': currentDetail === 'map' }">
         <MapView
           ref="mapView"
-          :active-chapter="activeChapter"
+          :active-chapter="primaryActiveChapter"
+          :selected-chapters="mapSelectedChapters"
           :is-detail-mode="currentDetail === 'map'"
           :locations="locations"
           :time-data="timeData"
@@ -37,8 +38,10 @@
       <div class="sentiment-wrapper" :class="{ 'detail-active': currentDetail === 'sentiment' }">
         <SentimentChart
           ref="sentimentChart"
-          :active-chapter="activeChapter"
+          :active-chapter="primaryActiveChapter"
+          :selected-chapters="selectedChapters"
           :is-detail-mode="currentDetail === 'sentiment'"
+          :chapters="chapters"
           :sentiment-data="sentimentData"
           @chapter-change="handleChapterChange"
         />
@@ -60,24 +63,34 @@ export default {
     return {
       chapters: [],
       activeChapter: null,
+      selectedChapters: [],
       locations: [],
       timeData: [],
       sentimentData: [],
       currentDetail: null,
     };
   },
-async mounted() {
-  await this.loadAllData();
-  // if (this.chapters.length) this.selectChapter(0);
-  // 等待地图渲染完成后，通知父组件重建 fullpage
-  this.$nextTick(() => {
-    setTimeout(() => {
-      if (this.$parent && this.$parent.fullpageInstance) {
-        this.$parent.fullpageInstance.reBuild();
+  computed: {
+    primaryActiveChapter() {
+      return this.selectedChapters.length ? this.selectedChapters[0] : null;
+    },
+    mapSelectedChapters() {
+      if (this.currentDetail === "map") {
+        return this.primaryActiveChapter !== null ? [this.primaryActiveChapter] : [];
       }
-    }, 300);
-  });
-},
+      return this.selectedChapters.slice(0, 3);
+    },
+  },
+  async mounted() {
+    await this.loadAllData();
+    this.$nextTick(() => {
+      setTimeout(() => {
+        if (this.$parent && this.$parent.fullpageInstance) {
+          this.$parent.fullpageInstance.reBuild();
+        }
+      }, 300);
+    });
+  },
   methods: {
     async loadAllData() {
       try {
@@ -128,26 +141,65 @@ async mounted() {
       return new Date(year, month, day);
     },
 
+    normalizeChapterName(name) {
+      return String(name || "")
+        .replace(/[《》]/g, "")
+        .replace(/\s+/g, "")
+        .replace(/后/g, "后")
+        .trim();
+    },
+
     async loadSentimentData() {
-      // Mock 数据，可替换为 fetch
-      const mockData = [
-        { chapter: "游天台山日记", positiveCount: 52, negativeCount: 14 },
-        { chapter: "游雁宕山日记", positiveCount: 41, negativeCount: 9 },
-        { chapter: "游白岳山日记", positiveCount: 34, negativeCount: 7 },
-        { chapter: "游黄山日记", positiveCount: 79, negativeCount: 14 },
-        { chapter: "游武彝山日记", positiveCount: 72, negativeCount: 12 },
-        { chapter: "游庐山日记", positiveCount: 94, negativeCount: 19 },
-        { chapter: "游黄山日记 后", positiveCount: 60, negativeCount: 13 },
-        { chapter: "游九鲤湖日记", positiveCount: 68, negativeCount: 10 },
-      ];
-      this.sentimentData = this.chapters.map(ch => {
-        const found = mockData.find(d => d.chapter === ch);
-        return found || { chapter: ch, positiveCount: 0, negativeCount: 0 };
-      });
+      try {
+        const [res1, res2] = await Promise.all([
+          fetch("/data/sentiment1.json"),
+          fetch("/data/sentiment2.json"),
+        ]);
+        const [data1, data2] = await Promise.all([res1.json(), res2.json()]);
+        const merged = [...data1, ...data2];
+        const sentimentMap = new Map();
+        merged.forEach(item => {
+          const key = this.normalizeChapterName(item["篇目"]);
+          sentimentMap.set(key, {
+            chapter: item["篇目"],
+            positiveCount: Number(item["积极词数"] || 0),
+            negativeCount: Number(item["消极词数"] || 0),
+            positiveWords: (item["情感词"] || []).filter(w => Number(w["情感值"]) > 0).map(w => w["词语"]),
+            negativeWords: (item["情感词"] || []).filter(w => Number(w["情感值"]) < 0).map(w => w["词语"]),
+          });
+        });
+
+        this.sentimentData = this.chapters.map(ch => {
+          const found = sentimentMap.get(this.normalizeChapterName(ch));
+          return found || {
+            chapter: ch,
+            positiveCount: 0,
+            negativeCount: 0,
+            positiveWords: [],
+            negativeWords: [],
+          };
+        });
+      } catch (error) {
+        console.error("情感数据加载失败:", error);
+        this.sentimentData = this.chapters.map(ch => ({
+          chapter: ch,
+          positiveCount: 0,
+          negativeCount: 0,
+          positiveWords: [],
+          negativeWords: [],
+        }));
+      }
     },
 
     selectChapter(index) {
-      this.activeChapter = index;
+      const exists = this.selectedChapters.includes(index);
+      if (exists) {
+        this.selectedChapters = this.selectedChapters.filter(i => i !== index);
+      } else {
+        if (this.selectedChapters.length >= 3) return;
+        this.selectedChapters = [...this.selectedChapters, index];
+      }
+      this.activeChapter = this.primaryActiveChapter;
       this.$nextTick(() => {
         const container = this.$refs.chapterList;
         const el = container?.querySelector(`[data-index="${index}"]`);
@@ -159,7 +211,17 @@ async mounted() {
 
     handleChapterChange(chapterName) {
       const idx = this.chapters.findIndex(c => c === chapterName);
-      if (idx !== -1) this.selectChapter(idx);
+      if (idx === -1) return;
+      if (this.selectedChapters.includes(idx)) {
+        this.selectChapter(idx);
+        return;
+      }
+      if (this.selectedChapters.length >= 3) {
+        this.selectedChapters = [idx];
+        this.activeChapter = idx;
+        return;
+      }
+      this.selectChapter(idx);
     },
 
     enterDetailMode(type) {
@@ -206,7 +268,7 @@ async mounted() {
   max-width: 100%;
   height: 100%;
   min-height: 0;
-  /*margin-top: 50px;*/
+  margin-top: 50px;
   overflow: hidden;
   font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", "SimSun", serif;
   color: var(--ink-0);

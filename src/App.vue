@@ -227,13 +227,13 @@ html.fp-enabled body {
 }
 
 .section3 {
-  background-image: url('./assets/img/background3.png'); /* 第三页背景 */
+  /*background-image: url('./assets/img/background3.png'); */
   background-position: right bottom;
   background-size: 35%;
 }
 
 .section4 {
-  background-image: url('./assets/img/background.png'); /* 第四页背景 */
+  /*background-image: url('./assets/img/background.png');  */
   background-position: left bottom; /* 背景图片靠左下 */
   background-size: 50%;
 }

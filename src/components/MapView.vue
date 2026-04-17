@@ -33,6 +33,7 @@ export default {
   name: "MapView",
   props: {
     activeChapter: { type: Number, default: null },
+    selectedChapters: { type: Array, default: () => [] },
     isDetailMode: { type: Boolean, default: false },
     locations: { type: Array, required: true },
     timeData: { type: Array, required: true },
@@ -95,6 +96,12 @@ export default {
       deep: true,
     },
     chapters: {
+      handler() {
+        if (this.svg && this.projection) this.updateByChapter();
+      },
+      deep: true,
+    },
+    selectedChapters: {
       handler() {
         if (this.svg && this.projection) this.updateByChapter();
       },
@@ -240,8 +247,15 @@ export default {
       if (!this.svg || this.svg.select(".circles-group").empty() || this.svg.select(".lines-group").empty()) {
         return;
       }
-      const selectedChapterName = (this.activeChapter !== null) ? this.chapters[this.activeChapter] : null;
-      const selectedLocations = this.locations.filter(l => l.chapter === selectedChapterName);
+      const selectedIndexes = this.isDetailMode
+        ? (this.activeChapter !== null ? [this.activeChapter] : [])
+        : ((this.selectedChapters || []).length ? this.selectedChapters : (this.activeChapter !== null ? [this.activeChapter] : []));
+      const selectedChapterNames = new Set(
+        selectedIndexes
+          .map(index => this.chapters[index])
+          .filter(Boolean)
+      );
+      const selectedLocations = this.locations.filter(l => selectedChapterNames.has(l.chapter));
 
       const circlesGroup = this.svg.select(".circles-group");
       circlesGroup.selectAll("circle").remove();
