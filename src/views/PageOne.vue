@@ -68,6 +68,7 @@ export default {
       timeData: [],
       sentimentData: [],
       currentDetail: null,
+      mapSelectionBackup: [],
     };
   },
   computed: {
@@ -225,10 +226,28 @@ export default {
     },
 
     enterDetailMode(type) {
+      if (type === "map") {
+        // 进入地图详情模式前，备份当前总览模式下的多选状态
+        this.mapSelectionBackup = [...this.selectedChapters];
+
+        if (this.selectedChapters.length > 1) {
+          const first = this.selectedChapters[0];
+          this.selectedChapters = first !== undefined ? [first] : [];
+          this.activeChapter = first ?? null;
+        }
+      }
+
       this.currentDetail = type;
     },
+
     exitDetailMode() {
+      if (this.currentDetail === "map" && this.mapSelectionBackup.length > 0) {
+        this.selectedChapters = [...this.mapSelectionBackup];
+        this.activeChapter = this.mapSelectionBackup[0] ?? null;
+      }
+
       this.currentDetail = null;
+      this.mapSelectionBackup = [];
     },
   },
 };

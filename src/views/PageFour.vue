@@ -17,20 +17,7 @@
             </div>
 
             <div style="bottom: 20px; right: 20px; z-index:99;position:absolute;">
-                <p class="note">
-                    The chart is inspired by
-                    <t-link
-                        theme="primary"
-                        underline
-                        href="https://cardcaptorsakura.visualcinnamon.com/&#34;"
-                        target="_blank"
-                    >
-                        <template v-slot:prefix-icon>
-                            <link-icon></link-icon>
-                        </template>
-                        An Ode to Cardcaptor Sakura
-                    </t-link>
-                </p>
+
             </div>
             <div id="china-map"></div>
             <!-- 圆形地图 -->
@@ -624,8 +611,8 @@ export default defineComponent({
                     '#F44336',
                 ]);
             var data = [
-                ['green', 0],
-                ['white', 11],
+                ['green', 11],
+                ['white', 0],
                 ['yellow', 2],
                 ['wulong', 17],
                 ['red', 0],
@@ -686,7 +673,6 @@ export default defineComponent({
                     'px'
             );
 
-            console.log(123);
             var container = d3.select('#chart');
             var canvas = container
                 .append('canvas')
@@ -1482,7 +1468,7 @@ export default defineComponent({
                     return;
                 }
 
-                // 如果上次选了省份，移除后应该仍然显示省份的茶叶数据
+                // 如果上次选了省份，移除后应该仍然显示省份的地点数据
                 if (province_click_current != -1) {
                     // 恢复显示 .tea-info-container 部分
                         if (teaInfoContainer) {
@@ -1508,7 +1494,7 @@ export default defineComponent({
                 var line_color = line_data[0][0].strokeStyle;
                 create_lines('character', line_data);
 
-                // 高亮外圈的茶叶
+                // 高亮外圈的地点
                 for (var i = 0; i < line_data.length; i++) {
                     var target_index = line_data[i][0].target_a;
                     // console.log(target_index);
@@ -1527,20 +1513,33 @@ export default defineComponent({
 
             function mouse_click_name(d, i) {
                 d.stopPropagation();
- 
-                // 若之前选择的茶和现在选择的茶不同，点击后显示该茶,省份选择数据清空
+
                 console.log(d, i, 'menuclick');
-                // 获取 .tea-info-container 元素
-                    const teaInfoContainer = document.querySelector('.tea-info-container');
+                const teaInfoContainer = document.querySelector('.tea-info-container');
+
+                // 通过外圈景点索引，找到它所属的省份索引
+                const matchedLine = cover_data.find(function (c) {
+                    return c[0].target_a === i.index;
+                });
+                const provinceIndex = matchedLine ? matchedLine[0].source_a : -1;
+
+                // 若之前选择的地点和现在选择的地点不同
                 if (name_click_current != i.index) {
-                    province_click_current = -1;
                     name_click_current = i.index;
+
+                    // 同步当前所属省份，不要清空
+                    province_click_current = provinceIndex;
+
                     clear_outer_ring();
+                    ctx.clearRect(-width / 2, -height / 2, width, height);
+
                     var line_data = cover_data.filter(function (c) {
                         return c[0].target_a === i.index;
                     });
+
                     ctx.globalAlpha = 0.8;
                     create_lines('character', line_data);
+
                     d3.select('#name-pie-' + i.index).style(
                         'fill',
                         line_data[0][0].strokeStyle
@@ -1550,41 +1549,50 @@ export default defineComponent({
                         line_data[0][0].strokeStyle
                     );
 
+                    // 保持/显示中间省份地图
+                    if (provinceIndex !== -1) {
+                        _this.createProvinceChart(provinceIndex);
+                    }
+
                     _this.current = name_click_current;
                     _this.visible = true;
 
-                    // 显示茶叶信息部分
                     if (teaInfoContainer) {
-                        teaInfoContainer.style.display = 'block';  // 显示 tea_info_container
+                        teaInfoContainer.style.display = 'block';
                     }
-
-                    console.log(this.visible);
-                    console.log(i?.data[0], 'i?.data[0]');
-                    console.log(
-                        _this.tea_info.filter(
-                            (el) => i?.data[0] === el.teatitle
-                        )[0]?.teacontent
-                    );
-                    _this.clearProvinceChart();
-
-                    // _this.$emit('customEvent', name_click_current);
                 } else {
+                    // 再次点击同一个外圈景点，取消景点选中
                     name_click_current = -1;
+
                     d3.select('#name-pie-' + i.index).style(
                         'fill',
                         '#00000000'
                     );
+                    d3.select('#name-label-circle-' + i.index).style(
+                        'fill',
+                        '#00000014'
+                    );
 
                     _this.visible = false;
-                    console.log(this.visible);
-                    // _this.$emit('customEvent', -1);
-                     // 隐藏茶叶信息部分
-                        if (teaInfoContainer) {
-                            teaInfoContainer.style.display = 'none';  // 隐藏 tea_info_container
-                        }
-                }
 
-                // console.log('点击了茶index:'+i.index);
+                    if (teaInfoContainer) {
+                        teaInfoContainer.style.display = 'none';
+                    }
+
+                    ctx.clearRect(-width / 2, -height / 2, width, height);
+                    clear_outer_ring();
+
+                    // 如果这个景点有所属省份，则恢复显示该省份的连线和中心地图
+                    if (provinceIndex !== -1) {
+                        province_click_current = provinceIndex;
+                        create_province_current_selected_line(provinceIndex);
+                        _this.createProvinceChart(provinceIndex);
+                    } else {
+                        province_click_current = -1;
+                        _this.clearProvinceChart();
+                        create_lines('character', cover_data);
+                    }
+                }
             }
 
             function mouse_over_province(d, i) {
@@ -1692,14 +1700,6 @@ export default defineComponent({
     data() {
         return {
             tea_info_container_visible: false,// 控制 tea-info-container 是否可见
-            /*GreenTea: true,
-            WhiteTea: false,
-            YellowTea: false,
-            oolong: false,
-            RedTea: false,
-            BlackTea: false,*/
-            
-            
            
             windowHeight: window.innerHeight,
             windowWidth: window.innerWidth - 300,

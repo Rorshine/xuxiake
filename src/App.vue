@@ -32,7 +32,7 @@ import fullpage from 'fullpage.js';
 import 'fullpage.js/dist/fullpage.css';
 import PageHome from './views/PageHome.vue';
 import PageOne from './views/PageOne.vue';
-import PageTwo from './views/PageTwo.vue';
+// import PageTwo from './views/PageTwo.vue';
 import PageThree from './views/PageThree.vue';
 import PageFour from './views/PageFour.vue';
 import PageFive from './views/PageFive.vue';
@@ -42,7 +42,7 @@ export default {
   components: {
     PageHome,
     PageOne,
-    PageTwo,
+    // PageTwo,
     PageThree,
     PageFour,
     PageFive,
@@ -51,8 +51,8 @@ export default {
     return {
       pageConfigs: [
         { title: '平台首页', component: PageHome },
-        { title: '游记路线可视化', component: PageOne },
-        { title: '游记情感词统计', component: PageTwo },
+        { title: '叙事地图和情感统计图', component: PageOne },
+        // { title: '游记情感词统计', component: PageTwo },
         { title: '省份游历甘特图', component: PageThree },
         { title: '徐霞客与山水名胜', component: PageFour },
         { title: '徐霞客与各色景观', component: PageFive },
@@ -87,6 +87,7 @@ export default {
         this.fullpageInstance.moveTo(index + 1);
       }
     },
+    
     navigateToPage(pageIndex) {
       // 供子组件调用，pageIndex 是目标页面在 fullpage 中的索引（1-based）
       if (this.fullpageInstance) {
@@ -221,7 +222,7 @@ html.fp-enabled body {
 }
 
 .section2 {
-  background-image: url('./assets/img/background3.png'); /* 第三页背景 */
+  /* background-image: url('./assets/img/background3.png'); */
   background-position: right bottom;
   background-size: 35%;
 }
@@ -239,7 +240,7 @@ html.fp-enabled body {
 }
 
 .section5 {
-  background-image: url('./assets/img/background.png'); /* 第五页背景 */
+  /* background-image: url('./assets/img/background.png');  */
   background-position: left bottom; /* 背景图片靠左下 */
   background-size: 50%;
 }

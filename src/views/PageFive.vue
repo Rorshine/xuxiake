@@ -202,38 +202,60 @@ export default {
     this.initChart();
   },
   methods: {
+    softenValue(count) {
+      const n = Number(count) || 0;
+      // 用幂函数压缩极差：既保留“数量越多角度越大”，又避免小类扇形过窄
+      return Math.pow(n, 0.65) + 0.8;
+    },
     formatData() {
-      const { data, colors, itemStyle } = this;
+      const { data, itemStyle } = this;
       for (let j = 0; j < data.length; ++j) {
         const level1 = data[j].children;
+        let level0Total = 0;
+        // 按每个景观子类的数量从多到少排序
+        level1.sort((a, b) => {
+          const getCount = (item) => {
+            if (!item.children || !item.children.length) return 0;
+            const countNode = item.children[0];
+            return Number(countNode.name) || 0;
+          };
+          return getCount(b) - getCount(a);
+        });
         for (let i = 0; i < level1.length; ++i) {
-          const block = level1[i].children;
-          const bookScore = [];
-          let bookScoreId;
+          const block = level1[i].children || [];
+          let level1Total = 0;
+
           for (let star = 0; star < block.length; ++star) {
-            let style = (function () {
-                bookScoreId = 0;
-                return itemStyle.star5;
-              }
-            )(block[star].name);
-            block[star].label = { color: style.color, downplay: { opacity: 0.5 } };
-            if (block[star].children) {
+            let style = itemStyle.star5;
+            const countNode = block[star];
+            const rawCount = Number(countNode.name) || 0;
+            const softenedCount = this.softenValue(rawCount);
+
+            countNode.value = softenedCount;
+            countNode.label = {
+              color: style.color,
+              downplay: { opacity: 0.5 }
+            };
+
+            if (countNode.children && countNode.children.length) {
               style = { opacity: 1, color: style.color };
-              block[star].children.forEach((book) => {
-                book.value = 1;
+              const leafValue = softenedCount / countNode.children.length;
+              countNode.children.forEach((book) => {
+                book.value = leafValue;
                 book.itemStyle = style;
                 book.label = { color: style.color };
-                let value = bookScoreId === 0 || bookScoreId === 3 ? 5 : 1;
-                if (bookScore[bookScoreId]) {
-                  bookScore[bookScoreId].value += value;
-                } else {
-                  bookScore[bookScoreId] = { color: colors[bookScoreId], value };
-                }
               });
             }
+
+            level1Total += softenedCount;
           }
+
+          level1[i].value = level1Total;
           level1[i].itemStyle = { color: data[j].itemStyle.color };
+          level0Total += level1Total;
         }
+
+        data[j].value = level0Total;
       }
     },
     initChart() {
@@ -257,10 +279,7 @@ export default {
             center: ['50%', '50%'],
             radius: ['0%', '110%'],
             data: this.data,
-            sort: function (a, b) {
-              if (a.depth === 1) return b.getValue() - a.getValue();
-              return a.dataIndex - b.dataIndex;
-            },
+            sort: null,
             label: { rotate: 'radial', color: this.bgColor },
             itemStyle: { borderColor: this.bgColor, borderWidth: 1.5 },
             levels: [

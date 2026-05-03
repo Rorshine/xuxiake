@@ -442,167 +442,217 @@ export default {
     },
 
 
-    drawRectLabels(selectedTimeData, xScale, centerY, timelineHeight, timelineGroup, lineGroup, timelineWidth, mapHeight) {
-      const s = this._labelScale != null ? this._labelScale : 1;
-      const rectWidth = 42;
-      const rectHeight = Math.max(48, Math.round(92 * s));
-      const laneStep = Math.max(62, Math.round(108 * s));
-      const baseY = centerY + Math.round(72 * s);
-      const laneCount = 2;
-      const minGap = rectWidth + 18;
-      const padX = 36;
-      const xMin = padX + rectWidth / 2;
-      const xMax = (timelineWidth - padX) - rectWidth / 2;
+drawRectLabels(selectedTimeData, xScale, centerY, timelineHeight, timelineGroup, lineGroup, timelineWidth, mapHeight) {
+  const s = this._labelScale != null ? this._labelScale : 1;
+  const rectWidth = 42;
+  const rectHeight = Math.max(48, Math.round(92 * s));
 
-      const lastRight = new Array(laneCount).fill(-Infinity);
-      const layout = selectedTimeData.map((d, i) => {
-        const baseX = xScale(new Date(d.time));
-        const key = `${d.name}-${d.time}-${i}`;
+  // 切换开关：
+  // true  = 关闭标签避让，用于截图“优化前”
+  // false = 开启标签避让，恢复当前正式效果
+  const disableLabelAvoidance = false;
 
-        const tryLane = (lane) => {
-          const minCenter = lastRight[lane] === -Infinity ? xMin : (lastRight[lane] + minGap + rectWidth / 2);
-          const x = Math.min(xMax, Math.max(baseX, minCenter));
-          const shift = Math.abs(x - baseX);
-          return { lane, x, shift };
-        };
-        const a = tryLane(0);
-        const b = tryLane(1);
-        const picked = a.shift <= b.shift ? a : b;
-        const right = picked.x + rectWidth / 2;
-        lastRight[picked.lane] = right;
-        const jitter = this.randSigned(`${key}-jx`, 3);
-        const xJ = Math.min(xMax, Math.max(xMin, picked.x + jitter));
-        return { x: xJ, y: baseY + picked.lane * laneStep, lane: picked.lane, baseX };
-      });
+  const baseY = centerY + Math.round(72 * s);
+  const laneStep = Math.max(62, Math.round(108 * s));
+  const laneCount = 2;
+  const minGap = rectWidth + 18;
+  const padX = 36;
+  const xMin = padX + rectWidth / 2;
+  const xMax = (timelineWidth - padX) - rectWidth / 2;
 
-      const maxLeftDrift = 140;
-      for (let lane = 0; lane < laneCount; lane++) {
-        const idxs = layout.map((it, idx) => ({ it, idx })).filter(x => x.it.lane === lane).map(x => x.idx);
-        for (let t = idxs.length - 2; t >= 0; t--) {
-          const i0 = idxs[t];
-          const i1 = idxs[t + 1];
-          const targetMax = layout[i1].x - minGap;
-          const driftMin = Math.max(xMin, layout[i0].baseX - maxLeftDrift);
-          layout[i0].x = Math.max(driftMin, Math.min(layout[i0].x, targetMax));
-        }
-        for (let t = 1; t < idxs.length; t++) {
-          const prev = layout[idxs[t - 1]];
-          const cur = layout[idxs[t]];
-          const minAllowed = prev.x + minGap;
-          cur.x = Math.min(xMax, Math.max(cur.x, minAllowed));
-        }
+  let layout = [];
+
+  if (disableLabelAvoidance) {
+    // =========================
+    // 临时版本：关闭标签避让
+    // 所有标签都放在同一层，直接使用时间轴原始位置
+    // =========================
+    layout = selectedTimeData.map((d) => {
+      const baseX = xScale(new Date(d.time));
+      const x = Math.min(xMax, Math.max(xMin, baseX));
+      return {
+        x,
+        y: baseY,
+        lane: 0,
+        baseX: x
+      };
+    });
+  } else {
+    // =========================
+    // 正式版本：分层避让布局
+    // =========================
+    const lastRight = new Array(laneCount).fill(-Infinity);
+
+    layout = selectedTimeData.map((d, i) => {
+      const baseX = xScale(new Date(d.time));
+      const key = `${d.name}-${d.time}-${i}`;
+
+      const tryLane = (lane) => {
+        const minCenter =
+          lastRight[lane] === -Infinity
+            ? xMin
+            : (lastRight[lane] + minGap + rectWidth / 2);
+
+        const x = Math.min(xMax, Math.max(baseX, minCenter));
+        const shift = Math.abs(x - baseX);
+        return { lane, x, shift };
+      };
+
+      const a = tryLane(0);
+      const b = tryLane(1);
+      const picked = a.shift <= b.shift ? a : b;
+
+      const right = picked.x + rectWidth / 2;
+      lastRight[picked.lane] = right;
+
+      const jitter = this.randSigned(`${key}-jx`, 3);
+      const xJ = Math.min(xMax, Math.max(xMin, picked.x + jitter));
+
+      return {
+        x: xJ,
+        y: baseY + picked.lane * laneStep,
+        lane: picked.lane,
+        baseX
+      };
+    });
+
+    const maxLeftDrift = 140;
+    for (let lane = 0; lane < laneCount; lane++) {
+      const idxs = layout
+        .map((it, idx) => ({ it, idx }))
+        .filter(x => x.it.lane === lane)
+        .map(x => x.idx);
+
+      for (let t = idxs.length - 2; t >= 0; t--) {
+        const i0 = idxs[t];
+        const i1 = idxs[t + 1];
+        const targetMax = layout[i1].x - minGap;
+        const driftMin = Math.max(xMin, layout[i0].baseX - maxLeftDrift);
+        layout[i0].x = Math.max(driftMin, Math.min(layout[i0].x, targetMax));
       }
 
-      const maxY = (mapHeight != null && mapHeight > 0) ? (mapHeight - rectHeight - 4) : Infinity;
-      if (Number.isFinite(maxY)) {
-        layout.forEach(cell => {
-          cell.y = Math.min(cell.y, maxY);
-        });
+      for (let t = 1; t < idxs.length; t++) {
+        const prev = layout[idxs[t - 1]];
+        const cur = layout[idxs[t]];
+        const minAllowed = prev.x + minGap;
+        cur.x = Math.min(xMax, Math.max(cur.x, minAllowed));
       }
+    }
+  }
 
-      lineGroup.selectAll(".timeline-rect")
-        .data(selectedTimeData)
-        .enter()
-        .append("rect")
-        .attr("class", "timeline-rect")
-        .attr("x", (d, i) => layout[i].x - rectWidth / 2)
-        .attr("y", (d, i) => layout[i].y)
-        .attr("width", rectWidth)
-        .attr("height", rectHeight)
-        .attr("rx", 0)
-        .attr("ry", 0)
+  const maxY = (mapHeight != null && mapHeight > 0)
+    ? (mapHeight - rectHeight - 4)
+    : Infinity;
+
+  if (Number.isFinite(maxY)) {
+    layout.forEach(cell => {
+      cell.y = Math.min(cell.y, maxY);
+    });
+  }
+
+  lineGroup.selectAll(".timeline-rect")
+    .data(selectedTimeData)
+    .enter()
+    .append("rect")
+    .attr("class", "timeline-rect")
+    .attr("x", (d, i) => layout[i].x - rectWidth / 2)
+    .attr("y", (d, i) => layout[i].y)
+    .attr("width", rectWidth)
+    .attr("height", rectHeight)
+    .attr("rx", 0)
+    .attr("ry", 0)
+    .attr("fill", "rgba(255,255,255,0.18)")
+    .attr("stroke", "rgba(31,36,36,0.22)")
+    .attr("stroke-width", 1)
+    .attr("style", "pointer-events: visible")
+    .on("click", (event, d) => {
+      // 更新右侧卡片内容
+      this.placeImpoDisplay = d.impo ? d.impo : "无";
+      this.placeInfoDisplay = d.info ? d.info : "无";
+    })
+    .on("mouseover", function() {
+      d3.select(this).transition().duration(300)
+        .attr("fill", "rgba(179,58,43,0.10)")
+        .attr("cursor", "pointer")
+        .style("opacity", 0.8);
+    })
+    .on("mouseout", function() {
+      d3.select(this).transition().duration(300)
         .attr("fill", "rgba(255,255,255,0.18)")
-        .attr("stroke", "rgba(31,36,36,0.22)")
-        .attr("stroke-width", 1)
-        .attr("style", "pointer-events: visible")
-        .on("click", (event, d) => {
-          // 更新右侧卡片内容
-          this.placeImpoDisplay = d.impo ? d.impo : "无";
-          this.placeInfoDisplay = d.info ? d.info : "无";
-        })
-        .on("mouseover", function() {
-          d3.select(this).transition().duration(300)
-            .attr("fill", "rgba(179,58,43,0.10)")
-            .attr("cursor", "pointer")
-            .style("opacity", 0.8);
-        })
-        .on("mouseout", function() {
-          d3.select(this).transition().duration(300)
-            .attr("fill", "rgba(255,255,255,0.18)")
-            .style("opacity", 1);
-        });
+        .style("opacity", 1);
+    });
 
-      lineGroup.selectAll(".timeline-label-link")
-        .data(selectedTimeData)
-        .enter()
-        .append("path")
-        .attr("class", "timeline-label-link")
-        .attr("d", (d, i) => {
-          const y1 = centerY + timelineHeight / 2;
-          const y2 = layout[i].y;
-          const x1 = xScale(new Date(d.time));
-          const x2 = layout[i].x;
-          const yLabel = y2 + 10;
-          const yMidBase = centerY + Math.round(70 * s);
-          const yMid = yMidBase + (layout[i].lane === 0 ? 0 : Math.round(16 * s));
-          return `M ${x1} ${y1} L ${x1} ${yMid} L ${x2} ${yMid} L ${x2} ${yLabel}`;
-        })
-        .attr("fill", "none")
-        .attr("stroke", "rgba(31,36,36,0.22)")
-        .attr("stroke-width", 1.2)
-        .style("opacity", 0.9);
+  lineGroup.selectAll(".timeline-label-link")
+    .data(selectedTimeData)
+    .enter()
+    .append("path")
+    .attr("class", "timeline-label-link")
+    .attr("d", (d, i) => {
+      const y1 = centerY + timelineHeight / 2;
+      const y2 = layout[i].y;
+      const x1 = xScale(new Date(d.time));
+      const x2 = layout[i].x;
+      const yLabel = y2 + 10;
+      const yMidBase = centerY + Math.round(70 * s);
+      const yMid = yMidBase + (layout[i].lane === 0 ? 0 : Math.round(16 * s));
+      return `M ${x1} ${y1} L ${x1} ${yMid} L ${x2} ${yMid} L ${x2} ${yLabel}`;
+    })
+    .attr("fill", "none")
+    .attr("stroke", "rgba(31,36,36,0.22)")
+    .attr("stroke-width", 1.2)
+    .style("opacity", 0.9);
 
-      lineGroup.selectAll(".timeline-text")
-        .data(selectedTimeData)
-        .enter()
-        .append("text")
-        .attr("class", "timeline-text")
-        .attr("x", (d, i) => layout[i].x)
-        .attr("y", (d, i) => layout[i].y)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "12px")
-        .attr("font-weight", "900")
-        .attr("fill", "#000")
-        .attr("style", "pointer-events: none")
-        .each(function(d) {
-          const textElement = d3.select(this);
-          const characters = d.name.split("");
-          const num = 6;
-          const columnOffset = 12;
-          const set2 = -2;
-          const set3 = 1.5;
-          const set4 = 5;
-          const set5 = 8;
-          const setX2 = 6;
-          const setX3 = 12;
-          const setX4 = 11;
+  lineGroup.selectAll(".timeline-text")
+    .data(selectedTimeData)
+    .enter()
+    .append("text")
+    .attr("class", "timeline-text")
+    .attr("x", (d, i) => layout[i].x)
+    .attr("y", (d, i) => layout[i].y)
+    .attr("text-anchor", "middle")
+    .attr("font-size", "12px")
+    .attr("font-weight", "900")
+    .attr("fill", "#000")
+    .attr("style", "pointer-events: none")
+    .each(function(d) {
+      const textElement = d3.select(this);
+      const characters = d.name.split("");
+      const num = 6;
+      const columnOffset = 12;
+      const set2 = -2;
+      const set3 = 1.5;
+      const set4 = 5;
+      const set5 = 8;
+      const setX2 = 6;
+      const setX3 = 12;
+      const setX4 = 11;
 
-          const totalCharacters = characters.length;
-          let yOffset = 0;
-          if (totalCharacters === 2) yOffset = set2;
-          else if (totalCharacters === 3) yOffset = set3;
-          else if (totalCharacters === 4) yOffset = set4;
-          else if (totalCharacters >= 5) yOffset = set5;
-          textElement.attr("y", +textElement.attr("y") + yOffset);
+      const totalCharacters = characters.length;
+      let yOffset = 0;
+      if (totalCharacters === 2) yOffset = set2;
+      else if (totalCharacters === 3) yOffset = set3;
+      else if (totalCharacters === 4) yOffset = set4;
+      else if (totalCharacters >= 5) yOffset = set5;
+      textElement.attr("y", +textElement.attr("y") + yOffset);
 
-          const lineHeight = totalCharacters <= num ? 6 / totalCharacters : 1;
-          const totalColumns = Math.ceil(totalCharacters / num);
-          let xOffset = 0;
-          if (totalColumns === 2) xOffset = setX2;
-          else if (totalColumns === 3) xOffset = setX3;
-          else if (totalColumns === 4) xOffset = setX4;
-          textElement.attr("x", +textElement.attr("x") + xOffset);
+      const lineHeight = totalCharacters <= num ? 6 / totalCharacters : 1;
+      const totalColumns = Math.ceil(totalCharacters / num);
+      let xOffset = 0;
+      if (totalColumns === 2) xOffset = setX2;
+      else if (totalColumns === 3) xOffset = setX3;
+      else if (totalColumns === 4) xOffset = setX4;
+      textElement.attr("x", +textElement.attr("x") + xOffset);
 
-          characters.forEach((char, index) => {
-            const column = Math.floor(index / num);
-            const row = index % num;
-            textElement.append("tspan")
-              .attr("x", +textElement.attr("x") - column * columnOffset)
-              .attr("dy", row === 0 && column > 0 ? `-${(num - 1) * lineHeight}em` : lineHeight + "em")
-              .text(char);
-          });
-        });
-    },
+      characters.forEach((char, index) => {
+        const column = Math.floor(index / num);
+        const row = index % num;
+        textElement.append("tspan")
+          .attr("x", +textElement.attr("x") - column * columnOffset)
+          .attr("dy", row === 0 && column > 0 ? `-${(num - 1) * lineHeight}em` : lineHeight + "em")
+          .text(char);
+      });
+    });
+},
 
     createTooltip(event, name) {
       const tooltipGroup = this.svg.select(".tooltip-group");
@@ -750,7 +800,7 @@ export default {
 .inner-content {
   flex: 1 1 auto;
   min-height: 0;
-  font-size: 16px;
+  font-size: 18px;
   color: var(--ink-1);
   line-height: 1.85;
   margin: 8px 12px 10px;

@@ -6,18 +6,18 @@
         :key="item.chapter"
         class="thumbnail-chapter-block"
       >
-        <div class="thumbnail-chapter-title">{{ item.chapter }}</div>
+        <div class="thumbnail-chapter-title" style="font-size: 16px; font-weight: 600;">{{ item.chapter }}</div>
         <div class="thumbnail-count-row">
-          <span>积极词 {{ item.positiveCount }}</span>
-          <span>消极词 {{ item.negativeCount }}</span>
+          <span style="font-size: 16px; font-weight: 600;">积极词 {{ item.positiveCount }}</span>
+          <span style="font-size: 16px; font-weight: 600;">消极词 {{ item.negativeCount }}</span>
         </div>
         <div class="thumbnail-cloud-row">
           <div class="thumbnail-cloud-panel">
-            <div class="thumbnail-cloud-title">积极情感词</div>
+            <div class="thumbnail-cloud-title" style="font-size: 16px; font-weight: 600;">积极情感词</div>
             <div :ref="setPositiveThumbRef(item.chapter)" class="cloud-chart"></div>
           </div>
           <div class="thumbnail-cloud-panel">
-            <div class="thumbnail-cloud-title">消极情感词</div>
+            <div class="thumbnail-cloud-title" style="font-size: 16px; font-weight: 600;">消极情感词</div>
             <div :ref="setNegativeThumbRef(item.chapter)" class="cloud-chart"></div>
           </div>
         </div>
@@ -32,24 +32,24 @@
             :key="item.chapter"
             class="detail-chapter-block"
           >
-            <div class="thumbnail-chapter-title">{{ item.chapter }}</div>
+            <div class="thumbnail-chapter-title" style="font-size: 16px; font-weight: 600;">{{ item.chapter }}</div>
             <div class="thumbnail-count-row">
-              <span>积极词 {{ item.positiveCount }}</span>
-              <span>消极词 {{ item.negativeCount }}</span>
+              <span style="font-size: 16px; font-weight: 600;">积极词 {{ item.positiveCount }}</span>
+              <span style="font-size: 16px; font-weight: 600;">消极词 {{ item.negativeCount }}</span>
             </div>
             <div class="thumbnail-cloud-row">
               <div class="thumbnail-cloud-panel">
-                <div class="thumbnail-cloud-title">积极情感词</div>
+                <div class="thumbnail-cloud-title" style="font-size: 16px; font-weight: 600;">积极情感词</div>
                 <div :ref="setPositiveDetailRef(item.chapter)" class="cloud-chart"></div>
               </div>
               <div class="thumbnail-cloud-panel">
-                <div class="thumbnail-cloud-title">消极情感词</div>
+                <div class="thumbnail-cloud-title" style="font-size: 16px; font-weight: 600;">消极情感词</div>
                 <div :ref="setNegativeDetailRef(item.chapter)" class="cloud-chart"></div>
               </div>
             </div>
           </div>
         </div>
-        <div v-else class="detail-empty-tip">选择章节后，可在此查看积极词与消极词词云</div>
+        <div v-else class="detail-empty-tip" style="font-size: 16px; font-weight: 600;">选择章节后，可在此查看积极词与消极词词云</div>
       </div>
     </template>
   </div>
@@ -58,7 +58,7 @@
 <script>
 import * as echarts from "echarts";
 import "echarts-wordcloud";
-
+let barChart;
 export default {
   name: "SentimentChart",
   props: {
@@ -77,6 +77,7 @@ export default {
       detailNegativeRefs: {},
       cloudCharts: new Map(),
       resizeHandler: null,
+      wordCloudDataCache: {},
     };
   },
   computed: {
@@ -98,7 +99,20 @@ export default {
       deep: true,
     },
     selectedChapters: {
-      handler() {
+      handler(newVal, oldVal) {
+        const newList = Array.isArray(newVal) ? newVal : [];
+        const oldList = Array.isArray(oldVal) ? oldVal : [];
+
+        const added = newList.filter(index => !oldList.includes(index));
+
+        added.forEach((index) => {
+          const item = this.sentimentData[index];
+          if (!item || !item.chapter) return;
+
+          delete this.wordCloudDataCache[this.getCacheKey(item.chapter, "positive")];
+          delete this.wordCloudDataCache[this.getCacheKey(item.chapter, "negative")];
+        });
+
         this.refreshAll();
       },
       deep: true,
@@ -115,7 +129,7 @@ export default {
   mounted() {
     this.refreshAll();
     this.resizeHandler = () => {
-      if (this.barChart) this.barChart.resize();
+      if (barChart) barChart.resize();
       this.cloudCharts.forEach(chart => chart && chart.resize());
     };
     window.addEventListener("resize", this.resizeHandler);
@@ -163,55 +177,96 @@ export default {
       h += h << 5;
       return (h >>> 0) / 4294967295;
     },
-    pickWords(words, chapter, type) {
-      const uniqueWords = [...new Set((words || []).filter(Boolean))];
-      if (uniqueWords.length <= 10) return uniqueWords;
-      const scored = uniqueWords
-        .map(word => ({ word, score: this.seededValue(`${chapter}-${type}-${word}`) }))
-        .sort((a, b) => a.score - b.score)
-        .slice(0, 10)
-        .map(item => item.word);
-      return scored;
+    getCacheKey(chapter, type) {
+      return `${chapter}__${type}`;
     },
-    buildWordCloudData(words, chapter, type) {
-      const picked = this.pickWords(words, chapter, type);
-      return picked.map((word, idx) => ({
+
+    buildRandomWordCloudData(words, chapter, type) {
+      const picked = this.pickWords(words);
+      return picked.map((word) => ({
         name: word,
-        value: 30 - idx * 2 + Math.round(this.seededValue(`${chapter}-${type}-${idx}`) * 6),
+        value: 22 + Math.round(Math.random() * 10),
         textStyle: {
-          color: type === "positive" ? "#b33a2b" : "#597b7a",
+          color: type === "positive" ? "#b33a2b" : "#5e7987",
         },
       }));
+    },
+
+    getWordCloudData(words, chapter, type) {
+      const key = this.getCacheKey(chapter, type);
+      if (!this.wordCloudDataCache[key]) {
+        this.wordCloudDataCache[key] = this.buildRandomWordCloudData(words, chapter, type);
+      }
+      return this.wordCloudDataCache[key];
+    },
+    getPickedWords(words, chapter, type) {
+      const key = this.getCacheKey(chapter, type);
+
+      if (!this.pickedWordsCache[key]) {
+        this.pickedWordsCache[key] = this.pickWords(words);
+      }
+
+      return this.pickedWordsCache[key];
+    },
+    pickWords(words) {
+      const uniqueWords = [...new Set((words || []).filter(Boolean))];
+      if (uniqueWords.length <= 10) return uniqueWords;
+
+      const shuffled = [...uniqueWords];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      return shuffled.slice(0, 10);
+    },
+    buildWordCloudData(words, chapter, type) {
+      return this.getWordCloudData(words, chapter, type);
     },
     getBarSeriesColor(seriesType, dataIndex) {
       const selected = this.selectedChapters || [];
       const isSelected = selected.includes(dataIndex);
       if (selected.length === 0) {
-        return seriesType === "positive" ? "#b33a2b" : "#597b7a";
+        return seriesType === "positive" ? "#b33a2b" : "#5e7987";//此处调柱子颜色
       }
       if (isSelected) {
-        return seriesType === "positive" ? "#b33a2b" : "#597b7a";
+        return seriesType === "positive" ? "#b33a2b" : "#5e7987";//此处调柱子颜色
       }
       return seriesType === "positive" ? "rgba(179, 58, 43, 0.28)" : "rgba(89, 123, 122, 0.28)";
     },
     renderBarChart() {
       console.log('renderBarChart')
       if (this.showThumbnailWords || !this.$refs.barContainer) {
-        if (this.barChart) {
-          this.barChart.dispose();
-          this.barChart = null;
+        if (barChart) {
+          barChart.dispose();
+          barChart = null;
         }
         return;
       }
-      if (this.barChart) this.barChart.dispose();
-      this.barChart = echarts.init(this.$refs.barContainer);
+      if (barChart) barChart.dispose();
+      barChart = echarts.init(this.$refs.barContainer);
       const chapters = this.sentimentData.map(d => d.chapter);
       const positive = this.sentimentData.map(d => d.positiveCount || 0);
       const negative = this.sentimentData.map(d => d.negativeCount || 0);
       const option = {
         animationDuration: 500,
-        title: { text: "情感词数量统计", left: "center", top: 4, textStyle: { fontSize: 14, fontWeight: 600 } },
-        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        title: { text: "情感词数量统计", left: "center", top: 4, textStyle: { fontSize: 16, fontWeight: 600 } },
+        tooltip: {
+          show: true,
+          trigger: "axis",
+          triggerOn: "mousemove",
+          axisPointer: { type: "shadow" },
+          confine: true,
+          formatter: (params) => {
+            if (!params || !params.length) return "";
+            const chapterName = params[0].axisValue || "";
+            const lines = [chapterName];
+            params.forEach((item) => {
+              lines.push(`${item.marker}${item.seriesName}：${item.value}`);
+            });
+            return lines.join("<br/>");
+          },
+        },
         legend: { data: ["积极情感词", "消极情感词"], left: 'right', top: 28, selectedMode: false },
         grid: {
           top: this.isDetailMode ? 68 : 60,
@@ -235,6 +290,7 @@ export default {
             name: "积极情感词",
             type: "bar",
             barMaxWidth: 26,
+            color: "#b33a2b",
             data: positive.map((value, index) => ({
               value,
               itemStyle: { color: this.getBarSeriesColor("positive", index) },
@@ -244,6 +300,7 @@ export default {
             name: "消极情感词",
             type: "bar",
             barMaxWidth: 26,
+            color: "#5e7987",
             data: negative.map((value, index) => ({
               value,
               itemStyle: { color: this.getBarSeriesColor("negative", index) },
@@ -251,9 +308,10 @@ export default {
           },
         ],
       };
-      this.barChart.setOption(option);
-      this.barChart.off("click");
-      this.barChart.on("click", (params) => {
+      console.log(option, 'test option')
+      barChart.setOption(option,true);
+      barChart.off("click");
+      barChart.on("click", (params) => {
         if (params.componentType === "series") {
           const chapterName = chapters[params.dataIndex];
           this.$emit("chapter-change", chapterName);
@@ -269,29 +327,29 @@ export default {
       this.cloudCharts.set(key, chart);
       const seriesData = this.buildWordCloudData(words, chapter, type);
       chart.setOption({
-        tooltip: { show: true },
+        tooltip: { show: false },
         series: [{
           type: 'wordCloud',
-          shape: 'circle',
+          shape: 'diamond',
           left: 0,
           top: 0,
           width: '100%',
           height: '100%',
           sizeRange: this.isDetailMode ? [16, 34] : [12, 24],
-          rotationRange: [-45, 45],
+          rotationRange: [0, 0],
           rotationStep: 45,
-          gridSize: 10,
+          gridSize: 8,
           drawOutOfBound: false,
           textStyle: {
-            fontFamily: 'Source Han Serif SC, Noto Serif CJK SC, Songti SC, STSong, SimSun, serif',
+            fontFamily: 'STKaiti',
             fontWeight: 600,
           },
-          emphasis: {
+          /*emphasis: {
             textStyle: {
               shadowBlur: 8,
               shadowColor: 'rgba(0,0,0,0.18)',
             },
-          },
+          },*/
           data: seriesData,
         }],
       });
@@ -318,9 +376,9 @@ export default {
       this.cloudCharts.clear();
     },
     disposeAllCharts() {
-      if (this.barChart) {
-        this.barChart.dispose();
-        this.barChart = null;
+      if (barChart) {
+        barChart.dispose();
+        barChart = null;
       }
       this.disposeCloudCharts();
     },
