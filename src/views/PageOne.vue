@@ -193,6 +193,19 @@ export default {
     },
 
     selectChapter(index) {
+      if (this.currentDetail === "map") {
+        this.selectedChapters = [index];
+        this.activeChapter = index;
+        this.$nextTick(() => {
+          const container = this.$refs.chapterList;
+          const el = container?.querySelector(`[data-index="${index}"]`);
+          if (el && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        });
+        return;
+      }
+
       const exists = this.selectedChapters.includes(index);
       if (exists) {
         this.selectedChapters = this.selectedChapters.filter(i => i !== index);
